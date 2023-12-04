@@ -103,10 +103,6 @@ check_and_add_sysctl() {
     fi
 }
 
-
-
-
-
 #-------------Script--Start
 
 echo "Updating CIS Benchmarks"
