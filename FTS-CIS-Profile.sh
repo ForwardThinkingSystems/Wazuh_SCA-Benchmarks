@@ -111,45 +111,44 @@ check_and_add_sysctl() {
 
 echo "Updating CIS Benchmarks"
 
-#rm -f /var/ossec/ruleset/sca/cis_centos8_linux.yml
-#curl https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/cis_rhel8_linux.yml -o /var/ossec/ruleset/sca/cis_rhel8_linux.yml
-#sudo systemctl restart wazuh-agent
+rm -f /var/ossec/ruleset/sca/cis_centos8_linux.yml
+curl https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/cis_rhel8_linux.yml -o /var/ossec/ruleset/sca/cis_rhel8_linux.yml
+sudo systemctl restart wazuh-agent
 
 #----------------------Edit or create modprobe configurations
-#edit_modprobe_conf "cramfs"
-#edit_modprobe_conf "vfat" https://bugzilla.redhat.com/show_bug.cgi?id=1927019
-#edit_modprobe_conf "squashfs"
-#edit_modprobe_conf "udf"
-#edit_modprobe_conf "usb-storage"
+edit_modprobe_conf "cramfs"
+edit_modprobe_conf "vfat" https://bugzilla.redhat.com/show_bug.cgi?id=1927019
+edit_modprobe_conf "squashfs"
+edit_modprobe_conf "udf"
+edit_modprobe_conf "usb-storage"
 
 #----------------------Unload modules
-#unload_module "cramfs"
-#unload_module "vfat"
-#unload_module "squashfs"
-#unload_module "udf"
-#unload_module "usb-storage"
+unload_module "cramfs"
+unload_module "vfat"
+unload_module "squashfs"
+unload_module "udf"
+unload_module "usb-storage"
 
 #----------------------Edit sudoers file
-#edit_sudoers "/var/log/sudoers.log"
+edit_sudoers "/var/log/sudoers.log"
 
 #----------------------Set up AIDE
-#setup_aide
+setup_aide
 
 #----------------------Edit /etc/issue file
-#edit_issue_file
+edit_issue_file
 
 #----------------------Create /etc/ssh/fts_banner file
-#create_ssh_banner
+create_ssh_banner
 
 #----------------------Update SSH configuration
-#update_ssh_config
-
+update_ssh_config
 
 #----------------------Mask NFT Tables 
-#sudo systemctl --now mask nftables
+sudo systemctl --now mask nftables
 
 #----------------------disable All Radios 
-#sudo nmcli radio all off
+sudo nmcli radio all off
 
 #----------------------enable ASLR - kernel.randomize_va_space = 2
 check_and_add_sysctl
@@ -158,9 +157,9 @@ check_and_add_sysctl
 echo "Authorized uses only. All activity may be monitored and reported" > /etc/issue.net
 
 #----------------------enable FUTURE crypto policy - This should be tested and enabled as needed
-#echo "min_dh_size = 2048" > /etc/crypto-policies/policies/modules/2048KEYS.pmod
-#echo "min_rsa_size = 2048" >> /etc/crypto-policies/policies/modules/2048KEYS.pmod
-#update-crypto-policies --set FUTURE:2048KEYS
+echo "min_dh_size = 2048" > /etc/crypto-policies/policies/modules/2048KEYS.pmod
+echo "min_rsa_size = 2048" >> /etc/crypto-policies/policies/modules/2048KEYS.pmod
+update-crypto-policies --set FUTURE:2048KEYS
 
 
 #----------------------Enable martian packet logs -  A martian packet is a packet with a source address which is obviously wrong - nothing could possibly be routed back to that address.
