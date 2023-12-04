@@ -175,21 +175,30 @@ ip6tables -A INPUT -i lo -j ACCEPT # ip6tables -A OUTPUT -o lo -j ACCEPT # ip6ta
 
 #----------------------SSHD modifications 
 
-# get the current date and time in YYYY-MM-DD_HH-MM-SS format
+#----------------------get the current date and time in YYYY-MM-DD_HH-MM-SS format
 timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
 
-# copy the original file to a backup file with the timestamp
+#----------------------copy the original file to a backup file with the timestamp
 cp /etc/ssh/sshd_config /etc/ssh/sshd_config_$timestamp
 
-# disable X11 forwarding
+#----------------------disable X11 forwarding
 sudo sed -i 's/^#*X11Forwarding yes/X11Forwarding no/' /etc/ssh/sshd_config
 
-# set max auth retries to 4
+#----------------------set max auth retries to 4
 sudo sed -i 's/^#*MaxAuthTries [0-9]*/MaxAuthTries 4/' /etc/ssh/sshd_config
 
-# set login grace time to 60
+#----------------------set login grace time to 60
 sudo sed -i 's/^#*LoginGraceTime [0-9]*/LoginGraceTime 60/' /etc/ssh/sshd_config
 
+#----------------------crontab Permissions
+sudo chown root:root /etc/crontab
+sudo chmod og-rwx /etc/crontab
+sudo chown root:root /etc/cron.hourly
+sudo chmod og-rwx /etc/cron.hourly
+sudo chown root:root /etc/cron.daily
+sudo chmod og-rwx /etc/cron.daily
+sudo chown root:root /etc/cron.weekly 
+sudo chmod og-rwx /etc/cron.weekly
 
 
 
