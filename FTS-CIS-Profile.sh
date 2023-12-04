@@ -199,8 +199,8 @@ sudo chown root:root /etc/cron.daily
 sudo chmod og-rwx /etc/cron.daily
 sudo chown root:root /etc/cron.weekly 
 sudo chmod og-rwx /etc/cron.weekly
-
-
+sudo chown root:root /etc/cron.d
+sudo chmod og-rwx /etc/cron.d
 
 echo "FTS CIS Baseline Setup completed successfully!"
 
