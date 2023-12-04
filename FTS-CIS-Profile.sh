@@ -204,6 +204,9 @@ sudo chmod og-rwx /etc/cron.d
 sudo chown root:root /etc/cron.monthly
 sudo chmod og-rwx /etc/cron.monthly
 
+# /etc/passwd- Permissions
+sudo chown root:root /etc/passwd-
+sudo chmod 600 /etc/passwd-
 
 echo "FTS CIS Baseline Setup completed successfully!"
 
