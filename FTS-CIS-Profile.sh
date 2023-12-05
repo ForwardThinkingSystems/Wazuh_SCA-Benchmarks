@@ -113,14 +113,12 @@ sudo systemctl restart wazuh-agent
 
 #----------------------Edit or create modprobe configurations
 edit_modprobe_conf "cramfs"
-edit_modprobe_conf "vfat" https://bugzilla.redhat.com/show_bug.cgi?id=1927019
 edit_modprobe_conf "squashfs"
 edit_modprobe_conf "udf"
 edit_modprobe_conf "usb-storage"
 
 #----------------------Unload modules
 unload_module "cramfs"
-unload_module "vfat"
 unload_module "squashfs"
 unload_module "udf"
 unload_module "usb-storage"
@@ -173,7 +171,7 @@ sysctl -w net.ipv6.route.flush=1
 ip6tables -P INPUT DROP; # ip6tables -P OUTPUT DROP; # ip6tables -P FORWARD DROP
 ip6tables -A INPUT -i lo -j ACCEPT # ip6tables -A OUTPUT -o lo -j ACCEPT # ip6tables -A INPUT -s ::1 -j DROP
 
-#----------------------SSHD modifications 
+#----------------------SSHD modifications--Start-----------------------
 
 #----------------------get the current date and time in YYYY-MM-DD_HH-MM-SS format
 timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
@@ -189,6 +187,9 @@ sudo sed -i 's/^#*MaxAuthTries [0-9]*/MaxAuthTries 4/' /etc/ssh/sshd_config
 
 #----------------------set login grace time to 60
 sudo sed -i 's/^#*LoginGraceTime [0-9]*/LoginGraceTime 60/' /etc/ssh/sshd_config
+
+
+#----------------------SSHD modifications--end-----------------------
 
 #----------------------crontab Permissions
 sudo chown root:root /etc/crontab
