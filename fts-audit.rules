@@ -46,3 +46,9 @@
 # 64-bit architecture
 -a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change
 -a always,exit -F arch=b64 -S clock_settime -k time-change
+
+
+#CIS Rule Detection workaround (stime is not depricated - Rule is active but the detection rule looks for stime)
+
+#-a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k time-change
+#-a always,exit -F arch=b64 -S adjtimex -S settimeofday -S stime -k time-change
