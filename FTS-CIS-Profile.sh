@@ -130,13 +130,13 @@ edit_sudoers "/var/log/sudoers.log"
 setup_aide
 
 #----------------------Edit /etc/issue file
-edit_issue_file
+sudo edit_issue_file
 
 #----------------------Create /etc/ssh/fts_banner file
-create_ssh_banner
+sudo create_ssh_banner
 
 #----------------------Update SSH configuration
-update_ssh_config
+sudo update_ssh_config
 
 #----------------------Mask NFT Tables 
 sudo systemctl --now mask nftables
@@ -145,31 +145,31 @@ sudo systemctl --now mask nftables
 sudo nmcli radio all off
 
 #----------------------enable ASLR - kernel.randomize_va_space = 2
-check_and_add_sysctl
+sudo check_and_add_sysctl
 
 #----------------------Ensure remote login warning banner is configured properly
-echo "Authorized uses only. All activity may be monitored and reported" > /etc/issue.net
+sudo echo "Authorized uses only. All activity may be monitored and reported" > /etc/issue.net
 
 #----------------------enable FUTURE crypto policy - This should be tested and enabled as needed
-echo "min_dh_size = 2048" > /etc/crypto-policies/policies/modules/2048KEYS.pmod
-echo "min_rsa_size = 2048" >> /etc/crypto-policies/policies/modules/2048KEYS.pmod
-update-crypto-policies --set FUTURE:2048KEYS
+sudo echo "min_dh_size = 2048" > /etc/crypto-policies/policies/modules/2048KEYS.pmod
+sudo echo "min_rsa_size = 2048" >> /etc/crypto-policies/policies/modules/2048KEYS.pmod
+sudo update-crypto-policies --set FUTURE:2048KEYS
 
 
 #----------------------Enable martian packet logs -  A martian packet is a packet with a source address which is obviously wrong - nothing could possibly be routed back to that address.
 
-sysctl -w net.ipv4.conf.all.log_martians=1
-sysctl -w net.ipv4.conf.default.log_martians=1
-sysctl -w net.ipv4.route.flush=1
+sudo sysctl -w net.ipv4.conf.all.log_martians=1
+sudo sysctl -w net.ipv4.conf.default.log_martians=1
+sudo sysctl -w net.ipv4.route.flush=1
 
 #----------------------Disable IPv6 RA reponses 
-sysctl -w net.ipv6.conf.all.accept_ra=0
-sysctl -w net.ipv6.conf.default.accept_ra=0
-sysctl -w net.ipv6.route.flush=1
+sudo sysctl -w net.ipv6.conf.all.accept_ra=0
+sudo sysctl -w net.ipv6.conf.default.accept_ra=0
+sudo sysctl -w net.ipv6.route.flush=1
 
 #----------------------Ensure IPv6 default deny firewall policy
-ip6tables -P INPUT DROP; # ip6tables -P OUTPUT DROP; # ip6tables -P FORWARD DROP
-ip6tables -A INPUT -i lo -j ACCEPT # ip6tables -A OUTPUT -o lo -j ACCEPT # ip6tables -A INPUT -s ::1 -j DROP
+sudo ip6tables -P INPUT DROP; # ip6tables -P OUTPUT DROP; # ip6tables -P FORWARD DROP
+sudo ip6tables -A INPUT -i lo -j ACCEPT # ip6tables -A OUTPUT -o lo -j ACCEPT # ip6tables -A INPUT -s ::1 -j DROP
 
 #----------------------SSHD modifications--Start-----------------------
 
