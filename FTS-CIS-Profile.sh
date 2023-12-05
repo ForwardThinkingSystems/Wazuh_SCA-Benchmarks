@@ -107,8 +107,8 @@ check_and_add_sysctl() {
 
 echo "Updating CIS Benchmarks"
 
-rm -f /var/ossec/ruleset/sca/cis_centos8_linux.yml
-curl https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/cis_rhel8_linux.yml -o /var/ossec/ruleset/sca/cis_rhel8_linux.yml
+sudo rm -f /var/ossec/ruleset/sca/cis_centos8_linux.yml
+sudo curl https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/cis_rhel8_linux.yml -o /var/ossec/ruleset/sca/cis_rhel8_linux.yml
 sudo systemctl restart wazuh-agent
 
 #----------------------Edit or create modprobe configurations
