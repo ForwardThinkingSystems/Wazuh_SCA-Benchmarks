@@ -7,5 +7,5 @@
 
 ##Deploy the CIS setup script
 
-```sudo curl -s -L https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/FTS-CIS-Profile.sh```
+```sudo curl -s -L https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/FTS-CIS-Profile.sh | bash```
 
