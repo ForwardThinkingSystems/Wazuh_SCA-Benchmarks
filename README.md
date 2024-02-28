@@ -1,11 +1,12 @@
 # Wazuh_SCA-Benchmarks
 
-##Deploy the agent with RHEL8 CIS profile - (Without nginx FIM)
+##Deploy the agent with RHEL8 CIS profile
 
 ```curl -sSL https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/wazuh-agent-deploy.sh | bash```
 
-Add Nginx FIM
+Add Nginx FIM config (Nginx Servers only)
 
+```curl -sSL https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/Nginx_FIM-deploy_config.sh | bash```
 
 ##Deploy the AuditD setup
 
