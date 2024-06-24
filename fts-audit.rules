@@ -1,5 +1,5 @@
 #RHEL Audit Rules for SOC2
-
+-w /usr/bin/ssh -p x -k outbound_ssh
 -w /etc/sudoers -p wa -k scope
 -w /etc/sudoers.d/ -p wa -k scope
 -w /var/log/lastlog -p wa -k logins
