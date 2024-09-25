@@ -22,6 +22,9 @@ check_error() {
 log_message "Stopping Wazuh Service"
 sudo systemctl stop wazuh-agent
 
+log_message "uninstall wazuh-agent"
+sudo yum remove -y wazuh-agent
+
 log_message "Cleanup old files"
 sudo rm -rf /var/ossec/
 
