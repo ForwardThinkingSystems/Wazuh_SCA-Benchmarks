@@ -16,8 +16,7 @@ Add Nginx FIM config (Nginx Servers only)
 
 ```curl -s -L https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/FTS-CIS-Profile.sh | bash```
 
-
-
+#------------------------------------------------------------------------------------
 
 ##Upgrade agent - Use this if you already have an older agent installed
 
