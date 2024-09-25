@@ -20,4 +20,5 @@ Add Nginx FIM config (Nginx Servers only)
 
 
 ##Upgrade agent - use with care
+
 ```sudo curl -s -L https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/refs/heads/main/wazuh_agent_upgrade.sh | bash```
