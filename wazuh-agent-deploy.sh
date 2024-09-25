@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WAZUH_AGENT_VERSION="4.6.0-1"
+WAZUH_AGENT_VERSION="4.8.1-1"
 WAZUH_AGENT_GROUP='Linux_Servers'
 CIS_PROFILE_URL='https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/cis_rhel8_linux.yml'
 CIS_PROFILE_PATH='/var/ossec/ruleset/sca/cis_rhel8_linux.yml'
@@ -18,6 +18,9 @@ check_error() {
         exit 1
     fi
 }
+
+log_message "Stopping Wazuh Service"
+sudo systemctl stop wazuh-agent
 
 log_message "Installing Wazuh Agent"
 curl -o wazuh-agent-4.8.1-1.x86_64.rpm https://packages.wazuh.com/4.x/yum/wazuh-agent-4.8.1-1.x86_64.rpm && sudo WAZUH_MANAGER='10.254.254.240' WAZUH_AGENT_GROUP='Linux_Servers' rpm -ihv wazuh-agent-4.8.1-1.x86_64.rpm
