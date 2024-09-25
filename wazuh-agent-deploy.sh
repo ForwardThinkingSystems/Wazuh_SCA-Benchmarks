@@ -20,7 +20,7 @@ check_error() {
 }
 
 log_message "Installing Wazuh Agent"
-curl -o wazuh-agent-4.6.0-1.x86_64.rpm https://packages.wazuh.com/4.x/yum/wazuh-agent-4.6.0-1.x86_64.rpm && sudo WAZUH_MANAGER='10.254.254.240' WAZUH_AGENT_GROUP='Linux_Servers' rpm -ihv wazuh-agent-4.6.0-1.x86_64.rpm
+curl -o wazuh-agent-4.8.1-1.x86_64.rpm https://packages.wazuh.com/4.x/yum/wazuh-agent-4.8.1-1.x86_64.rpm && sudo WAZUH_MANAGER='10.254.254.240' WAZUH_AGENT_GROUP='Linux_Servers' rpm -ihv wazuh-agent-4.8.1-1.x86_64.rpm
 
 log_message "Configuring Wazuh Agent Service"
 sudo systemctl daemon-reload
