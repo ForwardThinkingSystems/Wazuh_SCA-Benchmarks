@@ -12,8 +12,12 @@ Add Nginx FIM config (Nginx Servers only)
 
 ```sudo curl -s -L https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/FTS-Audit-Rules.sh | bash```
 
-
 ##Deploy the CIS setup script (Run as root 'sudo su')
 
 ```curl -s -L https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/FTS-CIS-Profile.sh | bash```
 
+
+
+
+##Upgrade agent - use with care
+```sudo curl -s -L https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/refs/heads/main/wazuh_agent_upgrade.sh | bash```
