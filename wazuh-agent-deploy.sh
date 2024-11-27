@@ -2,9 +2,31 @@
 
 WAZUH_AGENT_VERSION="4.9.2-1"
 WAZUH_AGENT_GROUP='Linux_Servers'
-CIS_PROFILE_URL='https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/cis_rhel8_linux.yml'
+#CIS_PROFILE_URL='https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/cis_rhel8_linux.yml' --- Keeping as a reference
+CIS_PROFILE_URL=""
 CIS_PROFILE_PATH='/var/ossec/ruleset/sca/cis_rhel8_linux.yml'
 SHARED_CONFIG_PATH='/var/ossec/etc/shared/Linux_Servers/cis_rhel8_linux-FTS.yml'
+
+
+# Detect AlmaLinux version
+os_version=$(grep -oP '(?<=release )\d+' /etc/redhat-release)
+
+# Define URLs for CIS benchmark files
+cis_alma_linux_8="https://raw.githubusercontent.com/wazuh/wazuh/refs/heads/master/ruleset/sca/almalinux/cis_alma_linux_8.yml"
+cis_alma_linux_9="https://raw.githubusercontent.com/wazuh/wazuh/refs/heads/master/ruleset/sca/almalinux/cis_alma_linux_9.yml"
+
+# Download the correct CIS file based on the detected version
+if [ "$os_version" -eq 8 ]; then
+    echo "Detected AlmaLinux 8. Downloading CIS benchmark for AlmaLinux 8..."
+    CIS_PROFILE_URL=$cis_alma_linux_8
+elif [ "$os_version" -eq 9 ]; then
+    echo "Detected AlmaLinux 9. Downloading CIS benchmark for AlmaLinux 9..."
+    CIS_PROFILE_URL=$cis_alma_linux_9
+else
+    echo "Unsupported AlmaLinux version: $os_version"
+    exit 1
+fi
+
 
 # Function to display messages
 log_message() {
@@ -20,7 +42,7 @@ check_error() {
 }
 
 log_message "Installing Wazuh Agent"
-curl -o wazuh-agent-4.8.1-1.x86_64.rpm https://packages.wazuh.com/4.x/yum/wazuh-agent-4.8.1-1.x86_64.rpm && sudo WAZUH_MANAGER='10.254.254.240' WAZUH_AGENT_GROUP='Linux_Servers' rpm -ihv wazuh-agent-4.8.1-1.x86_64.rpm
+curl -o wazuh-agent-${WAZUH_AGENT_VERSION}.x86_64.rpm https://packages.wazuh.com/4.x/yum/wazuh-agent-${WAZUH_AGENT_VERSION}.x86_64.rpm && sudo WAZUH_MANAGER='10.254.254.240' WAZUH_AGENT_GROUP='Linux_Servers' rpm -ihv wazuh-agent-${WAZUH_AGENT_VERSION}.x86_64.rpm
 
 log_message "Configuring Wazuh Agent Service"
 sudo systemctl daemon-reload
@@ -29,7 +51,7 @@ sudo systemctl start wazuh-agent
 check_error "Failed to start Wazuh Agent"
 
 log_message "Setting up CIS profile"
-sudo rm -f "/var/ossec/ruleset/sca/cis_centos8_linux.yml"
+sudo rm -f "/var/ossec/ruleset/sca/cis_centos*_linux.yml"
 sudo curl "$CIS_PROFILE_URL" -o "$CIS_PROFILE_PATH"
 check_error "Failed to download CIS profile"
 
