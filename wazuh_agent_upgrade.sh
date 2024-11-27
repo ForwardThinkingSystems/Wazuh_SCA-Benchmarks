@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Variables
-WAZUH_AGENT_VERSION="4.8.1-1"
+WAZUH_AGENT_VERSION="4.9.2-1"
 WAZUH_AGENT_GROUP='Linux_Servers'
 
 # Function to display messages
