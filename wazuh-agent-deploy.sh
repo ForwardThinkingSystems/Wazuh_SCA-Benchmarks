@@ -41,6 +41,14 @@ check_error() {
     fi
 }
 
+log_message "Stopping Wazuh Service"
+sudo systemctl stop wazuh-agent
+log_message "uninstall wazuh-agent"
+sudo yum remove -y wazuh-agent
+log_message "Cleanup old files"
+sudo rm -rf /var/ossec/
+
+
 log_message "Installing Wazuh Agent"
 curl -o wazuh-agent-${WAZUH_AGENT_VERSION}.x86_64.rpm https://packages.wazuh.com/4.x/yum/wazuh-agent-${WAZUH_AGENT_VERSION}.x86_64.rpm && sudo WAZUH_MANAGER='10.254.254.240' WAZUH_AGENT_GROUP='Linux_Servers' rpm -ihv wazuh-agent-${WAZUH_AGENT_VERSION}.x86_64.rpm
 
