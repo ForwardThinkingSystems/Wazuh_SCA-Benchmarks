@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WAZUH_AGENT_VERSION="4.8.1-1"
+WAZUH_AGENT_VERSION="4.9.2-1"
 WAZUH_AGENT_GROUP='Linux_Servers'
 CIS_PROFILE_URL='https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/cis_rhel8_linux.yml'
 CIS_PROFILE_PATH='/var/ossec/ruleset/sca/cis_rhel8_linux.yml'
