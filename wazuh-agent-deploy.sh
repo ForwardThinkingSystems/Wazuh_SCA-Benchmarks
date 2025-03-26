@@ -1,12 +1,10 @@
 #!/bin/bash
 
-WAZUH_AGENT_VERSION="4.9.2-1"
 WAZUH_AGENT_GROUP='Linux_Servers'
 #CIS_PROFILE_URL='https://raw.githubusercontent.com/ForwardThinkingSystems/Wazuh_SCA-Benchmarks/main/cis_rhel8_linux.yml' --- Keeping as a reference
 CIS_PROFILE_URL=""
 CIS_PROFILE_PATH='/var/ossec/ruleset/sca/cis_rhel8_linux.yml'
 SHARED_CONFIG_PATH='/var/ossec/etc/shared/Linux_Servers/cis_rhel8_linux-FTS.yml'
-
 
 # Detect AlmaLinux version
 os_version=$(grep -oP '(?<=release )\d+' /etc/redhat-release)
@@ -41,13 +39,24 @@ check_error() {
     fi
 }
 
-log_message "Installing Wazuh Agent"
-curl -o wazuh-agent-${WAZUH_AGENT_VERSION}.x86_64.rpm https://packages.wazuh.com/4.x/yum/wazuh-agent-${WAZUH_AGENT_VERSION}.x86_64.rpm
-log_message "Configuring Wazuh Agent Service"
+rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
+cat > /etc/yum.repos.d/wazuh.repo << EOF
+[wazuh]
+gpgcheck=1
+gpgkey=https://packages.wazuh.com/key/GPG-KEY-WAZUH
+enabled=1
+name=EL-\$releasever - Wazuh
+baseurl=https://packages.wazuh.com/4.x/yum/
+protect=1
+EOF
+
+dnf update
+
+WAZUH_MANAGER="10.0.0.2" dnf install wazuh-agent
+
 sudo systemctl daemon-reload
 sudo systemctl enable wazuh-agent
 sudo systemctl start wazuh-agent
-check_error "Failed to start Wazuh Agent"
 
 log_message "Setting up CIS profile"
 sudo rm -f "/var/ossec/ruleset/sca/cis_centos*_linux.yml"
