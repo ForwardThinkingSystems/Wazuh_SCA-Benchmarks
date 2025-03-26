@@ -39,8 +39,8 @@ check_error() {
     fi
 }
 
-rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
-cat > /etc/yum.repos.d/wazuh.repo << EOF
+sudo rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
+sudo cat > /etc/yum.repos.d/wazuh.repo << EOF
 [wazuh]
 gpgcheck=1
 gpgkey=https://packages.wazuh.com/key/GPG-KEY-WAZUH
@@ -50,9 +50,10 @@ baseurl=https://packages.wazuh.com/4.x/yum/
 protect=1
 EOF
 
-dnf update
+sudo dnf update -y
 
-WAZUH_MANAGER="10.0.0.2" dnf install wazuh-agent
+WAZUH_MANAGER="10.0.0.2"
+sudo dnf install wazuh-agent
 
 sudo systemctl daemon-reload
 sudo systemctl enable wazuh-agent
