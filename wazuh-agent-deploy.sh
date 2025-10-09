@@ -45,14 +45,38 @@ EOF
 
 sudo dnf update -y
 
+# Check if agent is already installed
+if rpm -q wazuh-agent > /dev/null 2>&1; then
+    log_message "Wazuh Agent already installed. Removing to perform clean installation..."
+    sudo systemctl stop wazuh-agent 2>/dev/null
+    sudo dnf remove wazuh-agent -y
+    check_error "Failed to remove existing Wazuh Agent"
+    log_message "Existing agent removed successfully"
+fi
+
 # Set environment variables for agent configuration
 export WAZUH_MANAGER="$WAZUH_MANAGER"
 export WAZUH_MANAGER_PORT="1514"
 export WAZUH_PROTOCOL="$WAZUH_PROTOCOL"
 export WAZUH_AGENT_GROUP="$WAZUH_AGENT_GROUP"
 
+log_message "Installing Wazuh Agent with manager: $WAZUH_MANAGER"
 sudo -E dnf install wazuh-agent -y
 check_error "Failed to install Wazuh Agent"
+
+# Verify configuration was applied
+log_message "Verifying agent configuration..."
+if ! grep -q "$WAZUH_MANAGER" /var/ossec/etc/ossec.conf; then
+    log_message "WARNING: Manager IP not found in ossec.conf. Applying configuration manually..."
+    
+    # Manually configure if env vars didn't work
+    sudo sed -i "s/MANAGER_IP/$WAZUH_MANAGER/g" /var/ossec/etc/ossec.conf
+    
+    # Add enrollment group if not present
+    if ! grep -q "<groups>$WAZUH_AGENT_GROUP</groups>" /var/ossec/etc/ossec.conf; then
+        sudo sed -i "s|</client>|  <enrollment>\n    <enabled>yes</enabled>\n    <groups>$WAZUH_AGENT_GROUP</groups>\n  </enrollment>\n</client>|" /var/ossec/etc/ossec.conf
+    fi
+fi
 
 sudo systemctl daemon-reload
 sudo systemctl enable wazuh-agent
@@ -74,3 +98,5 @@ sudo systemctl restart wazuh-agent
 check_error "Failed to restart Wazuh Agent"
 
 log_message "Wazuh Agent deployment completed successfully"
+log_message "Agent status:"
+sudo systemctl status wazuh-agent --no-pager -l
