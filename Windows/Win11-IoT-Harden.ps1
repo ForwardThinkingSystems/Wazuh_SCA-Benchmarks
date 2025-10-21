@@ -1,7 +1,7 @@
 <# 
 .SYNOPSIS
   Hardens a Windows 11 IoT (non-domain) VM on ESXi to a CIS-like baseline, enables RDP (with NLA),
-  configures NXLog for GELF logging to Graylog, and can open firewall for FileZilla Server.
+  and optionally configures NXLog for GELF logging to Graylog.
 
 .DESCRIPTION
   - Verifies elevation
@@ -13,10 +13,21 @@
   - Applies useful auditpol categories
   - Sets Windows Update AU policy (download & notify)
   - Enables RDP + NLA and opens firewall
-  - Installs and configures NXLog with GELF output to Graylog
+  - (Optional) Installs and configures NXLog for GELF logging to Graylog
   - (Optional) Hardens Microsoft Defender
   - (Optional) Configures firewall rules for FileZilla Server
   - Outputs verification artifacts in C:\Logs and transcripts in C:\PowerShellTranscripts
+
+.PARAMETER ConfigureNXLog
+  Install and configure NXLog for GELF logging to Graylog.
+
+.PARAMETER SourceType
+  Custom source_type identifier for Graylog filtering (e.g., FTS_App_Node, FTS_FTP_Server).
+  If not provided with -ConfigureNXLog, script will prompt interactively.
+
+.PARAMETER NodeType
+  Custom node_type identifier for Graylog filtering (e.g., media_server, ftp_server).
+  If not provided with -ConfigureNXLog, script will prompt interactively.
 
 .PARAMETER HardenDefender
   Apply stronger Defender/SmartScreen preferences.
@@ -33,31 +44,34 @@
 .PARAMETER FtpIncludeUdp
   Also open UDP for the passive range (off by default).
 
-.PARAMETER GraylogServer
-  IP address or hostname of Graylog server for NXLog GELF output.
-
-.PARAMETER GraylogPort
-  GELF TCP port on Graylog server (default: 555).
-
-.PARAMETER SkipNXLog
-  Skip NXLog installation and configuration.
-
 .NOTES
   - Test in a lab first; some changes may require reboot.
-  - NXLog CE will be downloaded from official source
+  - NXLog CE will be downloaded from official source if not present.
+
+.EXAMPLE
+  .\Win11-IoT-Harden.ps1 -ConfigureNXLog
+  Interactive mode - will prompt for source_type and node_type
+
+.EXAMPLE
+  .\Win11-IoT-Harden.ps1 -ConfigureNXLog -SourceType "FTS_App_Node" -NodeType "media_server"
+  Non-interactive mode with pre-configured identifiers
+
+.EXAMPLE
+  .\Win11-IoT-Harden.ps1 -ConfigureNXLog -SourceType "FTS_FTP_Server" -NodeType "ftp_server" -FtsFtpServer
+  Full configuration with FTP server
+
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
+  [switch]$ConfigureNXLog,
+  [string]$SourceType = "",
+  [string]$NodeType = "",
   [switch]$HardenDefender,
   [switch]$FtsFtpServer,
   [int]$FtpPassiveStart = 50000,
   [int]$FtpPassiveEnd   = 58000,
-  [switch]$FtpIncludeUdp,
-  [Parameter(Mandatory=$false)]
-  [string]$GraylogServer = "",
-  [int]$GraylogPort = 555,
-  [switch]$SkipNXLog
+  [switch]$FtpIncludeUdp
 )
 
 # -------------------- Helpers --------------------
@@ -131,35 +145,39 @@ function Get-FtpPassiveRangeString {
   "$Start-$End"
 }
 
-function Install-NXLog {
+function Install-ConfigureNXLog {
   param(
-    [Parameter(Mandatory)][string]$GraylogIP,
-    [Parameter(Mandatory)][int]$GraylogPort
+    [Parameter(Mandatory)][string]$SourceTypeId,
+    [Parameter(Mandatory)][string]$NodeTypeId
   )
   
-  Write-Host "`n== Installing and Configuring NXLog for GELF ==" -ForegroundColor Cyan
+  Write-Host "`n======================================" -ForegroundColor Cyan
+  Write-Host "  Installing & Configuring NXLog" -ForegroundColor Cyan
+  Write-Host "======================================" -ForegroundColor Cyan
   
-  $nxlogPath = "C:\Program Files (x86)\nxlog"
+  $nxlogPath = "C:\Program Files\nxlog"
   $nxlogExe = Join-Path $nxlogPath "nxlog.exe"
   $nxlogConfPath = Join-Path $nxlogPath "conf\nxlog.conf"
   
   # Check if already installed
   if (Test-Path $nxlogExe) {
-    Write-Host "NXLog already installed at $nxlogPath" -ForegroundColor Yellow
+    Write-Host "✓ NXLog already installed at $nxlogPath" -ForegroundColor Green
   } else {
-    Write-Host "Downloading NXLog CE..." -ForegroundColor Green
+    Write-Host "[*] Downloading NXLog CE..." -ForegroundColor Yellow
     $nxlogUrl = "https://nxlog.co/system/files/products/files/348/nxlog-ce-3.2.2329.msi"
     $installerPath = Join-Path $env:TEMP "nxlog-ce.msi"
     
     try {
       [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
       Invoke-WebRequest -Uri $nxlogUrl -OutFile $installerPath -UseBasicParsing
-      Write-Host "Installing NXLog..." -ForegroundColor Green
+      Write-Host "✓ Download complete" -ForegroundColor Green
+      
+      Write-Host "[*] Installing NXLog..." -ForegroundColor Yellow
       Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /quiet /norestart" -Wait -NoNewWindow
       Start-Sleep -Seconds 5
       
       if (Test-Path $nxlogExe) {
-        Write-Host "NXLog installed successfully" -ForegroundColor Green
+        Write-Host "✓ NXLog installed successfully" -ForegroundColor Green
       } else {
         throw "NXLog installation failed - executable not found"
       }
@@ -171,11 +189,27 @@ function Install-NXLog {
     }
   }
   
-  # Create NXLog configuration for GELF
-  Write-Host "Configuring NXLog for GELF output to $GraylogIP`:$GraylogPort..." -ForegroundColor Green
+  # Create directory structure
+  Write-Host "[*] Creating NXLog directory structure..." -ForegroundColor Yellow
+  Ensure-Path (Join-Path $nxlogPath "conf\nxlog.d")
+  Ensure-Path (Join-Path $nxlogPath "data")
+  Ensure-Path (Join-Path $nxlogPath "cert")
+  
+  # Create NXLog configuration
+  Write-Host "[*] Configuring NXLog for GELF output to graylog.fleetcam.io:5555..." -ForegroundColor Yellow
   
   $nxlogConfig = @"
-define ROOT C:\Program Files (x86)\nxlog
+define ROOT     C:\Program Files\nxlog
+define CERTDIR  %ROOT%\cert
+define CONFDIR  %ROOT%\conf\nxlog.d
+define LOGDIR   %ROOT%\data
+include %CONFDIR%\\*.conf
+define LOGFILE  %LOGDIR%\nxlog.log
+LogFile %LOGFILE%
+Moduledir %ROOT%\modules
+CacheDir  %ROOT%\data
+Pidfile   %ROOT%\data\nxlog.pid
+SpoolDir  %ROOT%\data
 
 <Extension gelf>
     Module xm_gelf
@@ -190,23 +224,22 @@ define ROOT C:\Program Files (x86)\nxlog
             <Query Id="0">
                 <Select Path="Application">*[System[(Level=1 or Level=2)]]</Select>
                 <Select Path="System">*[System[(Level=1 or Level=2)]]</Select>
+                <Select Path="Security">*[System[(Level=1 or Level=2)]]</Select>
             </Query>
         </QueryList>
     </QueryXML>
 </Input>
 
 <Output graylog>
-    Module om_tcp
-    Host $GraylogIP
-    Port $GraylogPort
-    OutputType GELF_TCP
+    Module om_udp
+    Host graylog.fleetcam.io
+    Port 5555
+    OutputType GELF_UDP
     
-    # Add custom FTS identification fields
-    Exec `$source_type = "FTS_App_Node";
-    Exec `$node_type = "media_server";
+    # Add custom fields (automatically prefixed with _ in GELF)
+    Exec `$source_type = "$SourceTypeId";
+    Exec `$node_type = "$NodeTypeId";
     Exec `$environment = "production";
-    Exec `$application = "CommunicationServer";
-    Exec `$server_role = "FleetCam";
     Exec `$gl2_source_collector = hostname();
 </Output>
 
@@ -217,29 +250,34 @@ define ROOT C:\Program Files (x86)\nxlog
 
   try {
     $nxlogConfig | Out-File -FilePath $nxlogConfPath -Encoding ASCII -Force
-    Write-Host "NXLog configuration written to $nxlogConfPath" -ForegroundColor Green
+    Write-Host "✓ NXLog configuration written to $nxlogConfPath" -ForegroundColor Green
     
     # Validate configuration
-    Write-Host "Validating NXLog configuration..." -ForegroundColor Yellow
-    $validateOutput = & $nxlogExe -v 2>&1
+    Write-Host "[*] Validating NXLog configuration..." -ForegroundColor Yellow
+    $validateOutput = & $nxlogExe -v 2>&1 | Out-String
     if ($validateOutput -match "ERROR") {
-      Write-Warning "NXLog configuration validation found errors: $validateOutput"
+      Write-Warning "NXLog configuration validation found errors:`n$validateOutput"
       return $false
     } else {
-      Write-Host "NXLog configuration validated successfully" -ForegroundColor Green
+      Write-Host "✓ NXLog configuration validated successfully" -ForegroundColor Green
     }
     
     # Test connectivity to Graylog
-    Write-Host "Testing connectivity to Graylog $GraylogIP`:$GraylogPort..." -ForegroundColor Yellow
-    $testConn = Test-NetConnection -ComputerName $GraylogIP -Port $GraylogPort -WarningAction SilentlyContinue
-    if ($testConn.TcpTestSucceeded) {
-      Write-Host "✓ Successfully connected to Graylog" -ForegroundColor Green
-    } else {
-      Write-Warning "✗ Cannot connect to Graylog at $GraylogIP`:$GraylogPort - check firewall and network"
+    Write-Host "[*] Testing connectivity to graylog.fleetcam.io:5555..." -ForegroundColor Yellow
+    try {
+      $testConn = Test-NetConnection -ComputerName "graylog.fleetcam.io" -Port 5555 -WarningAction SilentlyContinue -ErrorAction Stop
+      if ($testConn.TcpTestSucceeded) {
+        Write-Host "✓ Successfully connected to Graylog" -ForegroundColor Green
+      } else {
+        Write-Warning "✗ Cannot connect to graylog.fleetcam.io:5555 - check firewall and network"
+      }
+    } catch {
+      Write-Warning "✗ DNS resolution or connectivity test failed for graylog.fleetcam.io:5555"
+      Write-Host "  Verify DNS and network connectivity manually" -ForegroundColor Yellow
     }
     
     # Configure and start NXLog service
-    Write-Host "Starting NXLog service..." -ForegroundColor Green
+    Write-Host "[*] Starting NXLog service..." -ForegroundColor Yellow
     $service = Get-Service -Name nxlog -ErrorAction SilentlyContinue
     if ($service) {
       Set-Service -Name nxlog -StartupType Automatic
@@ -251,6 +289,7 @@ define ROOT C:\Program Files (x86)\nxlog
         Write-Host "✓ NXLog service is running" -ForegroundColor Green
       } else {
         Write-Warning "NXLog service failed to start. Status: $serviceStatus"
+        Write-Host "Check logs at: C:\Program Files\nxlog\data\nxlog.log" -ForegroundColor Yellow
       }
     } else {
       Write-Warning "NXLog service not found"
@@ -258,12 +297,14 @@ define ROOT C:\Program Files (x86)\nxlog
     }
     
     # Generate test event
-    Write-Host "Generating test event..." -ForegroundColor Yellow
+    Write-Host "`n[*] Generating test event..." -ForegroundColor Yellow
     Write-EventLog -LogName Application -Source WSH -EventId 1000 -EntryType Error `
-      -Message "TEST: NXLog GELF configuration validation from $(hostname) - FTS_App_Node"
+      -Message "TEST: NXLog GELF configuration validation from $(hostname) - Source: $SourceTypeId, Node: $NodeTypeId"
     
-    Write-Host "✓ Test event generated. Check Graylog for: _source_type:FTS_App_Node" -ForegroundColor Green
-    Write-Host "  Filter in Graylog: _source_type:FTS_App_Node AND message:*TEST*" -ForegroundColor Cyan
+    Write-Host "✓ Test event generated" -ForegroundColor Green
+    Write-Host "`nVerify in Graylog:" -ForegroundColor Cyan
+    Write-Host "  Search: _source_type:$SourceTypeId" -ForegroundColor White
+    Write-Host "  Or:     _gl2_source_collector:$(hostname) AND message:*TEST*" -ForegroundColor White
     
     return $true
     
@@ -287,9 +328,11 @@ $tsFile = Join-Path $transcriptDir ("IoT_Hardening_$(Get-Date -Format 'yyyyMMdd_
 Start-Transcript -Path $tsFile -Force | Out-Null
 
 Write-Host "======================================" -ForegroundColor Cyan
-Write-Host "  Windows 11 IoT Hardening + NXLog   " -ForegroundColor Cyan
-Write-Host "  FTS Media Server Configuration     " -ForegroundColor Cyan
+Write-Host "  Windows 11 IoT Hardening Script    " -ForegroundColor Cyan
+Write-Host "  Generic Non-Domain Configuration   " -ForegroundColor Cyan
 Write-Host "======================================" -ForegroundColor Cyan
+Write-Host "Hostname: $(hostname)" -ForegroundColor White
+Write-Host "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor White
 
 # Execution policy (local machine, RemoteSigned)
 if ($PSCmdlet.ShouldProcess("ExecutionPolicy","Set RemoteSigned (LocalMachine)")) {
@@ -303,6 +346,7 @@ Set-RegistryValue -Path 'HKLM:\SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsof
 Set-RegistryValue -Path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\Transcription' -Name 'EnableTranscripting' -Value 1
 Set-RegistryValue -Path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\Transcription' -Name 'OutputDirectory' -Value $transcriptDir -Type ([Microsoft.Win32.RegistryValueKind]::String)
 Set-RegistryValue -Path 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\Transcription' -Name 'IncludeInvocationHeader' -Value 1
+Write-Host "✓ PowerShell logging enabled" -ForegroundColor Green
 
 # -------------------- Core CIS-like Controls --------------------
 Write-Host "`n[*] Applying CIS-like security controls..." -ForegroundColor Yellow
@@ -443,20 +487,46 @@ Invoke-Safe {
 } "Disable RemoteRegistry"
 
 # -------------------- NXLog Installation & Configuration --------------------
-if (-not $SkipNXLog) {
-  if ([string]::IsNullOrWhiteSpace($GraylogServer)) {
-    Write-Warning "`nGraylogServer parameter not provided. Skipping NXLog configuration."
-    Write-Host "  To configure NXLog later, run with -GraylogServer parameter" -ForegroundColor Yellow
+if ($ConfigureNXLog) {
+  # Prompt for identifiers if not provided
+  if ([string]::IsNullOrWhiteSpace($SourceType)) {
+    Write-Host "`n======================================" -ForegroundColor Cyan
+    Write-Host "  NXLog Configuration - Custom Fields" -ForegroundColor Cyan
+    Write-Host "======================================" -ForegroundColor Cyan
+    Write-Host "These identifiers will be added to all log events for filtering in Graylog.`n" -ForegroundColor White
+    
+    do {
+      $SourceType = Read-Host "Enter source_type (e.g., FTS_App_Node, FTS_FTP_Server, FTS_Media_Server)"
+      if ([string]::IsNullOrWhiteSpace($SourceType)) {
+        Write-Host "  ✗ source_type cannot be empty" -ForegroundColor Red
+      }
+    } while ([string]::IsNullOrWhiteSpace($SourceType))
+  }
+  
+  if ([string]::IsNullOrWhiteSpace($NodeType)) {
+    do {
+      $NodeType = Read-Host "Enter node_type (e.g., media_server, ftp_server, app_server)"
+      if ([string]::IsNullOrWhiteSpace($NodeType)) {
+        Write-Host "  ✗ node_type cannot be empty" -ForegroundColor Red
+      }
+    } while ([string]::IsNullOrWhiteSpace($NodeType))
+  }
+  
+  Write-Host "`nConfiguration:" -ForegroundColor Cyan
+  Write-Host "  source_type: $SourceType" -ForegroundColor White
+  Write-Host "  node_type:   $NodeType" -ForegroundColor White
+  Write-Host "  environment: production" -ForegroundColor White
+  Write-Host "  destination: graylog.fleetcam.io:5555 (GELF UDP)`n" -ForegroundColor White
+  
+  $nxlogSuccess = Install-ConfigureNXLog -SourceTypeId $SourceType -NodeTypeId $NodeTypeId
+  
+  if ($nxlogSuccess) {
+    Write-Host "`n✓ NXLog configured successfully for GELF logging" -ForegroundColor Green
   } else {
-    $nxlogSuccess = Install-NXLog -GraylogIP $GraylogServer -GraylogPort $GraylogPort
-    if ($nxlogSuccess) {
-      Write-Host "`n  ✓ NXLog configured successfully for GELF logging" -ForegroundColor Green
-    } else {
-      Write-Warning "NXLog configuration encountered issues. Check logs above."
-    }
+    Write-Warning "NXLog configuration encountered issues. Check logs above."
   }
 } else {
-  Write-Host "`n[-] Skipping NXLog installation (SkipNXLog flag set)" -ForegroundColor Yellow
+  Write-Host "`n[-] Skipping NXLog installation (use -ConfigureNXLog to enable)" -ForegroundColor Yellow
 }
 
 # -------------------- Optional: Defender Hardening --------------------
@@ -510,13 +580,13 @@ Invoke-Safe {
 Invoke-Safe {
   Get-NetFirewallProfile | Select-Object Name, Enabled, DefaultInboundAction, DefaultOutboundAction |
     Format-Table | Out-String | Set-Content (Join-Path $logDir 'Firewall_Profile_Summary.txt')
-  Write-Host "  ✓ Firewall summary exported to $logDir\Firewall_Profile_Summary.txt" -ForegroundColor Green
+  Write-Host "  ✓ Firewall summary exported" -ForegroundColor Green
 } "Export firewall summary"
 
 # Export configuration summary
 $summary = @"
 ======================================
-FTS Windows 11 IoT Hardening Summary
+Windows 11 IoT Hardening Summary
 ======================================
 Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 Hostname: $(hostname)
@@ -528,30 +598,34 @@ Configuration Applied:
 - Audit logging configured
 - Windows Firewall enabled (all profiles)
 - PowerShell logging enabled
-$(if (-not $SkipNXLog -and -not [string]::IsNullOrWhiteSpace($GraylogServer)) { "- NXLog configured for GELF logging to $GraylogServer`:$GraylogPort" } else { "- NXLog not configured" })
+$(if ($ConfigureNXLog) { "- NXLog configured: source_type=$SourceType, node_type=$NodeType" } else { "- NXLog not configured" })
 $(if ($HardenDefender) { "- Microsoft Defender hardened" } else { "" })
 $(if ($FtsFtpServer) { "- FileZilla FTP firewall rules configured" } else { "" })
 
+Event Logs Forwarded to Graylog:
+$(if ($ConfigureNXLog) { "- Application: Error + Critical`n- System: Error + Critical`n- Security: Error + Critical (no Info)" } else { "- None (NXLog not configured)" })
+
 Logs Location: $logDir
 Transcripts: $transcriptDir
+$(if ($ConfigureNXLog) { "NXLog Config: C:\Program Files\nxlog\conf\nxlog.conf`nNXLog Logs: C:\Program Files\nxlog\data\nxlog.log" } else { "" })
 
 Next Steps:
 1. Reboot the system to apply all changes
-2. Verify NXLog is sending to Graylog: Search for _source_type:FTS_App_Node
-3. Monitor application event logs for CommunicationServer.exe crashes
-4. Review firewall logs in C:\Windows\System32\LogFiles\Firewall\
+$(if ($ConfigureNXLog) { "2. Verify NXLog is sending to Graylog: Search for _source_type:$SourceType" } else { "" })
+3. Review firewall logs in C:\Windows\System32\LogFiles\Firewall\
 
 ======================================
 "@
 
 $summaryPath = Join-Path $logDir "Hardening_Summary_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
 $summary | Out-File -FilePath $summaryPath -Encoding UTF8
-Write-Host "`n$summary" -ForegroundColor Cyan
 
-Write-Host "======================================" -ForegroundColor Cyan
+Write-Host "`n======================================" -ForegroundColor Cyan
 Write-Host "  Hardening Complete!                " -ForegroundColor Green
-Write-Host "  Summary saved to: $summaryPath" -ForegroundColor Cyan
-Write-Host "  REBOOT REQUIRED for some changes   " -ForegroundColor Yellow
+Write-Host "======================================" -ForegroundColor Cyan
+Write-Host $summary -ForegroundColor White
+Write-Host "Summary saved to: $summaryPath" -ForegroundColor Cyan
+Write-Host "`n⚠ REBOOT REQUIRED for some changes" -ForegroundColor Yellow
 Write-Host "======================================" -ForegroundColor Cyan
 
 Stop-Transcript | Out-Null
