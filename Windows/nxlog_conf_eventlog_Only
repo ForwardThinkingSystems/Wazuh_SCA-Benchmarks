@@ -1,0 +1,48 @@
+define ROOT     C:\Program Files\nxlog
+define CERTDIR  %ROOT%\cert
+define CONFDIR  %ROOT%\conf\nxlog.d
+define LOGDIR   %ROOT%\data
+include %CONFDIR%\\*.conf
+define LOGFILE  %LOGDIR%\nxlog.log
+LogFile %LOGFILE%
+Moduledir %ROOT%\modules
+CacheDir  %ROOT%\data
+Pidfile   %ROOT%\data\nxlog.pid
+SpoolDir  %ROOT%\data
+
+<Extension gelf>
+    Module xm_gelf
+</Extension>
+
+<Input eventlog>
+    Module im_msvistalog
+    
+    <QueryXML>
+        <QueryList>
+            <Query Id="0">
+                <Select Path="Application">*[System[(Level=1 or Level=2)]]</Select>
+                <Select Path="System">*[System[(Level=1 or Level=2)]]</Select>
+                <Select Path="Security">*[System[(Level=1 or Level=2)]]</Select>
+            </Query>
+        </QueryList>
+    </QueryXML>
+</Input>
+
+<Output graylog>
+    Module om_tcp
+    Host graylog.fleetcam.io
+    Port 5555
+    OutputType GELF_TCP
+    
+    Exec $source_type = "FTS_App_Node";
+    Exec $node_type = "ftp_server";
+    Exec $environment = "production";
+    Exec $gl2_source_collector = hostname();
+	
+	# Ensure the message fields are properly set for GELF
+    Exec if defined($full_message) $message = $full_message;
+</Output>
+
+<Route 1>
+    Path eventlog => graylog
+</Route>
