@@ -1,0 +1,106 @@
+define ROOT     C:\Program Files\nxlog
+define CERTDIR  %ROOT%\cert
+define CONFDIR  %ROOT%\conf\nxlog.d
+define LOGDIR   %ROOT%\data
+include %CONFDIR%\\*.conf
+define LOGFILE  %LOGDIR%\nxlog.log
+LogFile %LOGFILE%
+Moduledir %ROOT%\modules
+CacheDir  %ROOT%\data
+Pidfile   %ROOT%\data\nxlog.pid
+SpoolDir  %ROOT%\data
+
+<Extension gelf>
+    Module xm_gelf
+</Extension>
+
+# The multi-line parser extension has been REMOVED.
+
+<Input eventlog>
+    Module im_msvistalog
+    
+    <QueryXML>
+        <QueryList>
+            <Query Id="0">
+                <Select Path="Application">*[System[(Level=1 or Level=2)]]</Select>
+                <Select Path="System">*[System[(Level=1 or Level=2)]]</Select>
+                <Select Path="Security">*[System[(Level=1 or Level=2)]]</Select>
+            </Query>
+        </QueryList>
+    </QueryXML>
+</Input>
+
+<Input filezilla>
+    Module im_file
+    File "D:\\FileZilla ServerLogs\\*.log"
+    SavePos TRUE
+    InputType LineBased
+    
+    # Parse the log line structure
+    Exec if $raw_event =~ /^(\S+Z)\s+([<>=DVI]+)\s+\[(.*?)\]\s+(.*)/ \
+    { \
+        $EventTime = strptime($1, "%Y-%m-%dT%H:%M:%SZ"); \
+        $EventType = $2; \
+        $Context = $3; \
+        $Details = $4; \
+        $full_message = $raw_event; \
+        $short_message = $EventType + " [" + $Context + "] " + $Details; \
+    }
+    
+    # Parse FTP session details from the Context field
+    Exec if defined($Context) and $Context =~ /FTP Session:?\s(\d+)/ $FTPSession = $1;
+    Exec if defined($Context) and $Context =~ /FTP Session:?\s\d+\s([0-9\.]+)/ $FTPSourceIP = $1;
+    Exec if defined($Context) and $Context =~ /FTP Session:?\s\d+\s[0-9\.]+\s(\S+)/ $FTPUser = $1;
+    
+    # Parse FTP command and filename
+    Exec if defined($Details) and $Details =~ /^(RETR|STOR|DELE)\s+(.+)$/ \
+    { \
+        $FTPCommand = $1; \
+        $FTPFileName = $2; \
+    }
+    
+    # Parse firmware details from filename (for FleetCam firmware files)
+    Exec if defined($FTPFileName) and $FTPFileName =~ /^([A-Z]+)_([^_]+)_([^_]+)_V([0-9\.]+)_T(\d+)/ \
+    { \
+        $FirmwareType = $1; \
+        $FirmwareModel = $2; \
+        $FirmwareHardware = $3; \
+        $FirmwareVersion = $4; \
+        $FirmwareBuild = $5; \
+    }
+    
+    # Determine transfer direction
+    Exec if defined($FTPCommand) \
+    { \
+        if $FTPCommand == "RETR" $TransferDirection = "Download"; \
+        if $FTPCommand == "STOR" $TransferDirection = "Upload"; \
+        if $FTPCommand == "DELE" $TransferDirection = "Delete"; \
+    }
+    
+    # Filtering rules
+    Exec if $raw_event =~ /ECONNABORTED/ drop();
+    Exec if $raw_event !~ /(?i)UPLOAD|DOWNLOAD|LOGIN|FAILED|STOR|RETR/ drop();
+</Input>
+
+<Output graylog>
+    Module om_tcp
+    Host graylog.fleetcam.io
+    Port 5555
+    OutputType GELF_TCP
+    
+    Exec $source_type = "FTS_App_Node";
+    Exec $node_type = "ftp_server";
+    Exec $environment = "production";
+    Exec $gl2_source_collector = hostname();
+	
+	# Ensure the message fields are properly set for GELF
+    Exec if defined($full_message) $message = $full_message;
+</Output>
+
+<Route 1>
+    Path eventlog => graylog
+</Route>
+
+<Route 2>
+    Path filezilla => graylog
+</Route>
